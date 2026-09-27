@@ -60,6 +60,12 @@ def test_predict_endpoint_imputes_all_house_fields_from_zip_demographics(
     assert math.isfinite(response.json()["predicted_price"])
 
 
+def test_zipcode_imputers_cover_all_supported_zipcodes(test_client):
+    resources = test_client.app.state.prediction_resources
+
+    assert set(resources.imputers_by_zipcode) == set(resources.demographics.index)
+
+
 @pytest.mark.parametrize("zipcode_value", ["omitted", None], ids=["omitted", "null"])
 def test_predict_endpoint_requires_zipcode(
     test_client, sample_home_features, zipcode_value

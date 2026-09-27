@@ -39,7 +39,7 @@ class PredictionResources:
     model_features: list[str]
     demographics: pd.DataFrame
     feature_scaler: StandardScaler
-    imputer: KNNImputer
+    imputers_by_zipcode: dict[str, KNNImputer]
 
 
 def load_prediction_resources() -> PredictionResources:
@@ -71,15 +71,18 @@ def load_prediction_resources() -> PredictionResources:
 
     feature_scaler = StandardScaler()
     scaled_donors = feature_scaler.fit_transform(donor_features)
-    imputer = KNNImputer(n_neighbors=5, weights="distance")
-    imputer.fit(scaled_donors)
+    imputers_by_zipcode = {}
+    for zipcode, donor_rows in donors.groupby("zipcode", sort=False).indices.items():
+        zip_imputer = KNNImputer(n_neighbors=5, weights="distance")
+        zip_imputer.fit(scaled_donors[list(donor_rows)])
+        imputers_by_zipcode[str(zipcode)] = zip_imputer
 
     return PredictionResources(
         model=model,
         model_features=model_features,
         demographics=demographics,
         feature_scaler=feature_scaler,
-        imputer=imputer,
+        imputers_by_zipcode=imputers_by_zipcode,
     )
 
 
@@ -109,7 +112,9 @@ async def predict(home_features: HomeFeatures, request: Request):
     # supplied. Missing values are imputed in standardized feature space.
     if input_data.loc[:, HOUSE_FIELDS].isna().to_numpy().any():
         scaled_input = resources.feature_scaler.transform(input_data)
-        imputed_scaled_input = resources.imputer.transform(scaled_input)
+        imputed_scaled_input = resources.imputers_by_zipcode[zipcode].transform(
+            scaled_input
+        )
         input_data = pd.DataFrame(
             resources.feature_scaler.inverse_transform(imputed_scaled_input),
             columns=resources.model_features,
