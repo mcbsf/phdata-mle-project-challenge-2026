@@ -4,11 +4,12 @@ import httpx
 import os
 
 
-@pytest.fixture
+@pytest.fixture(scope="session")
 def test_client():
     """Fixture for unit tests using FastAPI TestClient."""
     from src.main import app
-    return TestClient(app)
+    with TestClient(app) as client:
+        yield client
 
 
 @pytest.fixture
