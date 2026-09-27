@@ -98,6 +98,25 @@ docker logs housing-api
 
 To get predictions from the model, send a POST request to the `/predict` endpoint with the required features in JSON format. The API will return the predicted home price along with any additional metadata.
 
+### Missing home features
+
+`zipcode` is required. Each of the seven home fields can be supplied, set to `null`, or omitted. For incomplete requests, the API uses a `KNNImputer` with five neighbors and distance weighting. Its historical sale donors are joined with known zipcode demographics, so even a request with all seven home fields missing can be imputed from the zipcode. The scaler is fit on the same ordered model features before KNN distance calculations, and both the scaler and imputer are fit once at application startup. `price` and `zipcode` are not imputer inputs. Complete requests go directly to the existing prediction model without imputation.
+
+For example, this request is valid:
+
+```json
+{"zipcode": "98042", "bathrooms": null, "sqft_living": 1500}
+```
+
+Unknown zipcodes return HTTP 422 because the API cannot supply their demographic features.
+
+### Run the targeted unit tests in Docker
+
+```bash
+docker build -f Dockerfile.test -t mle-api-test .
+docker run --rm mle-api-test pytest test/unit -v
+```
+
 ## Testing
 
 This project uses Docker-based testing to ensure environment consistency between testing and production. All tests run inside Docker containers, eliminating "works on my machine" issues.
